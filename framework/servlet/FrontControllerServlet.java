@@ -14,12 +14,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import framework.annotations.Controller;
 import framework.annotations.URLMapping;
 import framework.routing.Mapping;
+import framework.routing.RouteKey;
 import framework.utils.PackageScanner;
 
 public class FrontControllerServlet extends HttpServlet {
 
     private String controllersPackage;
-    private HashMap<String, Mapping> mappingUrls;
+    private HashMap<RouteKey, Mapping> mappingUrls;
 
     @Override
     public void init() throws ServletException {
@@ -64,12 +65,15 @@ public class FrontControllerServlet extends HttpServlet {
                 if (method.isAnnotationPresent(URLMapping.class)) {
                     URLMapping mappingAnnotation = method.getAnnotation(URLMapping.class);
                     String url = mappingAnnotation.value();
+                    String httpMethod = mappingAnnotation.method();
 
-                    if (mappingUrls.containsKey(url)) {
-                        throw new IllegalArgumentException("URL dupliquée: " + url);
+                    RouteKey routeKey = new RouteKey(url, httpMethod);
+
+                    if (mappingUrls.containsKey(routeKey)) {
+                        throw new IllegalArgumentException("URL dupliquée: " + url + " (" + httpMethod + ")");
                     }
 
-                    mappingUrls.put(url, new Mapping(fullClassName, method.getName()));
+                    mappingUrls.put(routeKey, new Mapping(fullClassName, method.getName()));
                 }
             }
         }
@@ -79,12 +83,15 @@ public class FrontControllerServlet extends HttpServlet {
         String contextPath = req.getContextPath();
         String requestURI = req.getRequestURI();
         String url = requestURI.substring(contextPath.length());
+        String httpMethod = req.getMethod();
 
         res.setContentType("text/html; charset=UTF-8");
 
         try {
-            if (mappingUrls.containsKey(url)) {
-                Mapping mapping = mappingUrls.get(url);
+            RouteKey routeKey = new RouteKey(url, httpMethod);
+
+            if (mappingUrls.containsKey(routeKey)) {
+                Mapping mapping = mappingUrls.get(routeKey);
                 Class<?> controllerClass = Class.forName(mapping.getClassName());
                 Object controller = controllerClass.getDeclaredConstructor().newInstance();
                 Method method = controllerClass.getDeclaredMethod(mapping.getMethod());
@@ -102,11 +109,12 @@ public class FrontControllerServlet extends HttpServlet {
             } else {
                 try (PrintWriter out = res.getWriter()) {
                     out.println("<!DOCTYPE html><html><body>");
-                    out.println("<h1>URL non trouvee : " + url + "</h1>");
+                    out.println("<h1>URL non trouvee : " + url + " [" + httpMethod + "]</h1>");
                     out.println("<h2>Routes disponibles :</h2><ul>");
-                    for (Map.Entry<String, Mapping> entry : mappingUrls.entrySet()) {
+                    for (Map.Entry<RouteKey, Mapping> entry : mappingUrls.entrySet()) {
+                        RouteKey key = entry.getKey();
                         Mapping m = entry.getValue();
-                        out.println("<li>" + entry.getKey() + " -> " + m.getClassName() + " -> " + m.getMethod() + "()</li>");
+                        out.println("<li>" + key.getHttpMethod() + " " + key.getUrl() + " -> " + m.getClassName() + " -> " + m.getMethod() + "()</li>");
                     }
                     out.println("</ul>");
                     out.println("</body></html>");
