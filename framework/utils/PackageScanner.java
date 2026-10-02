@@ -1,7 +1,13 @@
 package framework.utils;
 
+import framework.annotations.Controller;
+import framework.annotations.URLMapping;
+import framework.routing.Mapping;
+import framework.routing.UrlMethod;
+
 import java.io.*;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.net.*;
 import java.util.*;
 import java.util.jar.*;
@@ -9,8 +15,8 @@ import java.util.jar.*;
 public class PackageScanner {
 
     public static List<Class<?>> getAnnotatedClassesInPackage(
-        String packageName,
-        Class<? extends Annotation> annotation
+            String packageName,
+            Class<? extends Annotation> annotation
     ) throws IOException, ClassNotFoundException {
         List<Class<?>> classes = PackageScanner.findClassesInPackage(packageName);
         List<Class<?>> annotated = new ArrayList<>();
@@ -23,8 +29,8 @@ public class PackageScanner {
     }
 
     public static List<String> getAnnotatedClassesNamesInPackage(
-        String packageName,
-        Class<? extends Annotation> annotation
+            String packageName,
+            Class<? extends Annotation> annotation
     ) throws IOException, ClassNotFoundException {
         List<String> classesNames = new ArrayList<>();
         List<Class<?>> classes = PackageScanner.findClassesInPackage(packageName);
@@ -37,8 +43,31 @@ public class PackageScanner {
         return classesNames;
     }
 
+    public static Map<UrlMethod, Mapping> scanControllerRoutes(String packageName)
+            throws IOException, ClassNotFoundException {
+        Map<UrlMethod, Mapping> routes = new HashMap<>();
+        List<Class<?>> controllers = getAnnotatedClassesInPackage(packageName, Controller.class);
+
+        for (Class<?> clazz : controllers) {
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(URLMapping.class)) {
+                    URLMapping ann = method.getAnnotation(URLMapping.class);
+                    String url = ann.value();
+                    String httpMethod = ann.method();
+
+                    UrlMethod key = new UrlMethod(url, httpMethod);
+                    if (routes.containsKey(key)) {
+                        throw new IllegalArgumentException("Route dupliquée : " + url + " " + httpMethod);
+                    }
+                    routes.put(key, new Mapping(clazz, method));
+                }
+            }
+        }
+        return routes;
+    }
+
     public static List<Class<?>> findClassesInPackage(String packageName)
-    throws IOException, ClassNotFoundException {
+            throws IOException, ClassNotFoundException {
         String path = packageName.replace('.', '/');
         Enumeration<URL> resources = Thread.currentThread()
                 .getContextClassLoader()
