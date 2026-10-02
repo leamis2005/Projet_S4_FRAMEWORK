@@ -1,27 +1,21 @@
 package framework.routing;
 
+import java.lang.reflect.Method;
+
 public class Mapping {
-    private String className;
-    private String method;
+    private Class<?> controllerClass;
+    private Method method;
 
-    public Mapping(String className, String method) {
-        this.className = className;
+    public Mapping(Class<?> controllerClass, Method method) {
+        this.controllerClass = controllerClass;
         this.method = method;
     }
 
-    public String getClassName() {
-        return className;
+    public Class<?> getControllerClass() {
+        return controllerClass;
     }
 
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public String getMethod() {
+    public Method getMethod() {
         return method;
-    }
-
-    public void setMethod(String method) {
-        this.method = method;
     }
 }

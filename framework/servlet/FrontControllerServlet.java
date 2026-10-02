@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import framework.routing.Mapping;
 import framework.routing.UrlMethod;
+import framework.utils.Configuration;
 import framework.utils.ModelView;
 
 public class FrontControllerServlet extends HttpServlet {
@@ -33,14 +34,8 @@ public class FrontControllerServlet extends HttpServlet {
         }
         this.routes = ctxRoutes;
 
-        this.viewPrefix = getServletContext().getInitParameter("view_prefix");
-        if (this.viewPrefix == null) {
-            this.viewPrefix = "/WEB-INF/views/";
-        }
-        this.viewSuffix = getServletContext().getInitParameter("view_suffix");
-        if (this.viewSuffix == null) {
-            this.viewSuffix = ".jsp";
-        }
+        this.viewPrefix = Configuration.getViewPrefix();
+        this.viewSuffix = Configuration.getViewSuffix();
     }
 
     @Override
@@ -62,21 +57,18 @@ public class FrontControllerServlet extends HttpServlet {
         res.setContentType("text/html; charset=UTF-8");
 
         try {
-<<<<<<< HEAD
-            String httpMethod = req.getMethod();
-=======
->>>>>>> 4ef5112
             UrlMethod key = new UrlMethod(url, httpMethod);
 
             if (routes.containsKey(key)) {
                 Mapping mapping = routes.get(key);
-                Class<?> controllerClass = Class.forName(mapping.getClassName());
+                Class<?> controllerClass = mapping.getControllerClass();
+                Method method = mapping.getMethod();
                 Object controller = controllerClass.getDeclaredConstructor().newInstance();
-                Method method = controllerClass.getDeclaredMethod(mapping.getMethod());
                 method.setAccessible(true);
                 Object result = method.invoke(controller);
 
-                if (result instanceof ModelView mv) {
+                if (result instanceof ModelView) {
+                    ModelView mv = (ModelView) result;
                     Map<String, Object> model = mv.getModel();
                     for (Map.Entry<String, Object> entry : model.entrySet()) {
                         req.setAttribute(entry.getKey(), entry.getValue());
@@ -84,7 +76,8 @@ public class FrontControllerServlet extends HttpServlet {
                     String view = viewPrefix + mv.getView() + viewSuffix;
                     RequestDispatcher rd = req.getRequestDispatcher(view);
                     rd.forward(req, res);
-                } else if (result instanceof String html) {
+                } else if (result instanceof String) {
+                    String html = (String) result;
                     try (PrintWriter out = res.getWriter()) {
                         out.println("<!DOCTYPE html><html><body>");
                         out.println(html);
@@ -93,7 +86,7 @@ public class FrontControllerServlet extends HttpServlet {
                 } else {
                     try (PrintWriter out = res.getWriter()) {
                         out.println("<!DOCTYPE html><html><body>");
-                        out.println("<pre>" + url + " -> " + mapping.getClassName() + " -> " + mapping.getMethod() + "() : resultat non reconnu</pre>");
+                        out.println("<pre>" + url + " -> " + controllerClass.getName() + " -> " + method.getName() + "() : resultat non reconnu</pre>");
                         out.println("</body></html>");
                     }
                 }
@@ -104,7 +97,7 @@ public class FrontControllerServlet extends HttpServlet {
                     out.println("<h2>Routes disponibles :</h2><ul>");
                     for (Map.Entry<UrlMethod, Mapping> entry : routes.entrySet()) {
                         Mapping m = entry.getValue();
-                        out.println("<li>" + entry.getKey().getUrl() + " (" + entry.getKey().getMethod() + ") -> " + m.getClassName() + " -> " + m.getMethod() + "()</li>");
+                        out.println("<li>" + entry.getKey().getUrl() + " (" + entry.getKey().getMethod() + ") -> " + m.getControllerClass().getName() + " -> " + m.getMethod().getName() + "()</li>");
                     }
                     out.println("</ul>");
                     out.println("</body></html>");
