@@ -1,5 +1,11 @@
 package framework.servlet;
 
+import framework.routing.Mapping;
+import framework.routing.UrlMethod;
+import framework.utils.Configuration;
+import framework.utils.JsonUtil;
+import framework.utils.ModelView;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
@@ -9,11 +15,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import framework.routing.Mapping;
-import framework.routing.UrlMethod;
-import framework.utils.Configuration;
-import framework.utils.ModelView;
 
 public class FrontControllerServlet extends HttpServlet {
 
@@ -54,8 +55,6 @@ public class FrontControllerServlet extends HttpServlet {
         String url = requestURI.substring(contextPath.length());
         String httpMethod = req.getMethod();
 
-        res.setContentType("text/html; charset=UTF-8");
-
         try {
             UrlMethod key = new UrlMethod(url, httpMethod);
 
@@ -67,30 +66,40 @@ public class FrontControllerServlet extends HttpServlet {
                 method.setAccessible(true);
                 Object result = method.invoke(controller);
 
-                if (result instanceof ModelView) {
-                    ModelView mv = (ModelView) result;
-                    Map<String, Object> model = mv.getModel();
-                    for (Map.Entry<String, Object> entry : model.entrySet()) {
-                        req.setAttribute(entry.getKey(), entry.getValue());
-                    }
-                    String view = viewPrefix + mv.getView() + viewSuffix;
-                    RequestDispatcher rd = req.getRequestDispatcher(view);
-                    rd.forward(req, res);
-                } else if (result instanceof String) {
-                    String html = (String) result;
+                if (mapping.isApi()) {
+                    res.setContentType("application/json; charset=UTF-8");
+                    String json = JsonUtil.toJson(result);
                     try (PrintWriter out = res.getWriter()) {
-                        out.println("<!DOCTYPE html><html><body>");
-                        out.println(html);
-                        out.println("</body></html>");
+                        out.print(json);
                     }
                 } else {
-                    try (PrintWriter out = res.getWriter()) {
-                        out.println("<!DOCTYPE html><html><body>");
-                        out.println("<pre>" + url + " -> " + controllerClass.getName() + " -> " + method.getName() + "() : resultat non reconnu</pre>");
-                        out.println("</body></html>");
+                    res.setContentType("text/html; charset=UTF-8");
+                    if (result instanceof ModelView) {
+                        ModelView mv = (ModelView) result;
+                        Map<String, Object> model = mv.getModel();
+                        for (Map.Entry<String, Object> entry : model.entrySet()) {
+                            req.setAttribute(entry.getKey(), entry.getValue());
+                        }
+                        String view = viewPrefix + mv.getView() + viewSuffix;
+                        RequestDispatcher rd = req.getRequestDispatcher(view);
+                        rd.forward(req, res);
+                    } else if (result instanceof String) {
+                        String html = (String) result;
+                        try (PrintWriter out = res.getWriter()) {
+                            out.println("<!DOCTYPE html><html><body>");
+                            out.println(html);
+                            out.println("</body></html>");
+                        }
+                    } else {
+                        try (PrintWriter out = res.getWriter()) {
+                            out.println("<!DOCTYPE html><html><body>");
+                            out.println("<pre>" + url + " -> " + controllerClass.getName() + " -> " + method.getName() + "() : resultat non reconnu</pre>");
+                            out.println("</body></html>");
+                        }
                     }
                 }
             } else {
+                res.setContentType("text/html; charset=UTF-8");
                 try (PrintWriter out = res.getWriter()) {
                     out.println("<!DOCTYPE html><html><body>");
                     out.println("<h1>URL non trouvee : " + url + " [" + httpMethod + "]</h1>");
