@@ -2,6 +2,7 @@ package framework.utils;
 
 import framework.annotations.Controller;
 import framework.annotations.URLMapping;
+import framework.annotations.WebApi;
 import framework.routing.Mapping;
 import framework.routing.UrlMethod;
 
@@ -54,12 +55,13 @@ public class PackageScanner {
                     URLMapping ann = method.getAnnotation(URLMapping.class);
                     String url = ann.value();
                     String httpMethod = ann.method();
+                    boolean api = method.isAnnotationPresent(WebApi.class);
 
                     UrlMethod key = new UrlMethod(url, httpMethod);
                     if (routes.containsKey(key)) {
                         throw new IllegalArgumentException("Route dupliquée : " + url + " " + httpMethod);
                     }
-                    routes.put(key, new Mapping(clazz, method));
+                    routes.put(key, new Mapping(clazz, method, api));
                 }
             }
         }
